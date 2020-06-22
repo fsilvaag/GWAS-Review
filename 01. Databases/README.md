@@ -11,6 +11,8 @@
 
 - *Numerical012.txt.gz*: The imputed genotypic data coded as 0 (minor allele homozygote), 1 (heterozygote), and 2 (major allele homozygote).
 
+- *LD_Decay.txt.gz*: Linkage disequilibrium analysis using Tassel v 5.2.52 (Bradbury et al. 2007). 
+
 - *README.md*: This file
 
 
@@ -22,3 +24,5 @@
 3. Han L, Abney M (2011) Identity by descent estimation with dense genome‐wide genotype data. Genetic epidemiology 35:557-567
 
 4. Han L, Abney M (2013) Using identity by descent estimation with dense genotype data to detect positive selection. European Journal of Human Genetics 21:205-211
+
+5. Bradbury PJ, Zhang Z, Kroon DE, Casstevens TM, Ramdoss Y, Buckler ES (2007) TASSEL: software for association mapping of complex traits in diverse samples. Bioinformatics 23:2633-2635
