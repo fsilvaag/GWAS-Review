@@ -5,4 +5,6 @@ The information contained within this repository corresponds to the script and d
 
 **02. Codes**: Within this folder we can find the R and SAS codes used to make the analisis of the data.
 
+**03.Output_File**: All the figures and intermediate files from the analysis
+
 
