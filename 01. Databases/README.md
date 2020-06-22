@@ -7,7 +7,7 @@
 
 - *Plant_Height_Phenotype.xlsx*: Raw phenotypic data
 
-- *Imputed_Genotypic_data.hmp.txt.gz*: Genotypic data for the 487 selected DH lines. See *Real data* section for details.
+- *Imputed_Genotypic_data*: Genotypic data for the 487 selected DH lines in Hapmap and vcf format. See *Real data* section for details.
 
 - *Numerical012.txt.gz*: The imputed genotypic data coded as 0 (minor allele homozygote), 1 (heterozygote), and 2 (major allele homozygote).
 
