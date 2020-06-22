@@ -1,0 +1,171 @@
+---
+title: "Population Structure PCA"
+author: "Fernando Silva Aguilar"
+date: "June 3, 2020"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## File Preparation
+Example taken from: 
+1) [Page](https://adnguyen.github.io/2017_Ecological_Genomics/Tutorial/2017-03-22_pop4_followalong.html)
+
+2) [Page](http://adegenet.r-forge.r-project.org/files/tutorial-dapc.pdf)
+
+### Libraries
+
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+rm(list = ls())
+
+library(adegenet)
+library(vcfR)
+
+```
+### Genotypic data input
+```{r}
+
+vcf1 <- read.vcfR("https://raw.githubusercontent.com/fsilvaag/GWAS-Review/master/01.%20Databases/Imputed_Genotypic_data.vcf.gz")
+
+# The adegenet package uses a highly efficient way of storing large SNP datasets in R called a "genlight" object. The following function creates a genlight object from your vcf:
+gl1 <- vcfR2genlight(vcf1)
+
+gl1
+
+```
+
+## K-means for number of K
+According to the analisis below, the k with the lowest BIC was for 3 clusters.
+
+### Processing data for K = 3
+Select #PCs = 500 and k=3. We select 500 as a extra maximum number of PCs. After that we choose k =3 because is the number of populations we previously know we have. If no information, you can choose any value for K, it will no change the analysis, results, and interpretation.
+
+```{r}
+st <- Sys.time()
+grp4 <- find.clusters(gl1, max.n.clust=40) 
+en <- Sys.time()
+en -st
+#write.csv(as.data.frame(grp4$Kstat),paste0(path,"PCA.csv"))
+```
+
+```{r}
+names(grp4)
+head(grp4$Kstat,n = 10) # Gives the BIC for each K
+k3 <- as.matrix(grp4$grp) #Population of origin foe each DH. Since grp was chosen with #PCs = 500 and k =3, in this dataset there will be only 3 options for each individual
+grp4$stat # BIC for k =3
+grp4$size # Number of DH for each group
+```
+
+## Identify DH per population when k =3
+
+```{r}
+k5 <- as.data.frame(k3)
+## Create a column with the cycle for each DH (C0, C17, and C0C17)
+k5$Group <- substr(rownames(k5),1,gregexpr(pattern ='_',rownames(k5)))
+k5$Group <- gsub("_","",k5$Group)
+## Subset the data for each identified population
+for (i in 1:3) {
+  assign(paste0("P",i),
+       subset(k5, k5$V1 == i))  
+}
+```
+
+## Discriminant Analysis of PC (DAPC)
+In the graph below, the red and blue areas correspond to the 2 possible populations
+
+```{r}
+dapc3 <- dapc(gl1, grp4$grp, n.pca = 40, n.da = 5)
+scatter(dapc3, posi.da="bottomright", bg="white", pch=17:22)
+
+```
+
+```{r}
+myCol <- c("purple","red","darkblue")
+scatter(dapc3, posi.da="none", bg="white", pch=17:22, cstar=0, col=myCol, scree.pca=T, posi.pca="bottomright")
+# Red points for C0C17 population
+# Blue points for C17 population
+# Purple points for C0 population
+```
+
+
+## Optimal K
+### Delta K Method.
+The data for this was produced from Structure_threader (Pina-Martins et al. 2017).
+```{r}
+d <-as.data.frame( matrix(c(1,	NA	,3696.345182,
+                 2,	0.650152,	3651.744773,
+3,	3.806229,	3639.887771,
+4,	0.084992,	3640.544388,
+5,	2.144892,	3642.978417,
+6,	0.444367,	3645.506726,
+7,	1.652767,	3648.215448,
+8,	0.445402,	3652.258303,
+9,	0.470587,	3653.389237,
+10,	0.246149,	3657.799673
+), nrow =10, ncol = 3, byrow = T))
+
+colnames(d) <- c("K","DeltaK","BIC_PCA")
+
+library(tidyverse)
+STR <- ggplot(d, aes(x = K, y = 1000*DeltaK)) + geom_line(color = 'blue') + geom_point(aes(x= K, y = 1000*DeltaK), color = 'blue') + theme_bw() + 
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(size =15, face = 'bold'),
+        axis.text.y = element_text(size =15, face = 'bold'),
+        axis.title = element_text(size = 18, face = 'bold')) +
+  labs(x = "", y = "Delta k\n") + 
+  scale_x_continuous(expand = c(0,0), limits = c(1,11), breaks = c(2,3,4,5,6,7,8,9,10)) + scale_y_continuous(expand = c(0,0), limits = c(0,4000))
+STR
+```
+
+### BIC Plot for the PCA analysis
+```{r}
+pc <- ggplot(d, aes(x = K, y = BIC_PCA)) + geom_line(color = 'blue') + geom_point(aes(x= K, y = BIC_PCA), color = 'blue') + theme_bw() + 
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_text(size =15, face = 'bold'),
+        axis.text.y = element_text(size =15, face = 'bold'),
+        axis.title = element_text(size = 18, face = 'bold')) +
+  labs(x = "", y = "BIC\n") + 
+  scale_x_continuous(expand = c(0,0), limits = c(1,11), breaks = c(2,3,4,5,6,7,8,9,10)) + scale_y_continuous(expand = c(0,0), limits = c(3630,3700))
+pc
+```
+
+```{r}
+library(ggpubr)
+
+ggarrange(STR, pc, ncol = 1, nrow = 2, labels = c("A)","B)"))
+```
+
+## Loadings per PCA
+
+```{r}
+
+contrib <- loadingplot(dapc3$var.contr, axis=2,
+thres=.07, lab.jitter=1)
+
+```
+
+## DH Membership
+
+```{r}
+class(dapc3$posterior)
+Q_Matrix_K3 <- (dapc3$posterior)
+#write.table(Q_Matrix_K3, paste0(path,"Q_PCA.txt"), quote = F,row.names = T, sep = "\t")
+
+
+summary(dapc3)
+assignplot(dapc3, subset=1:50)
+compoplot(dapc3, posi="bottomright",
+txt.leg=paste("Cluster", 1:3), lab="",
+ncol=1, xlab="individuals", col=funky(3))
+```
+
+
+# References
+1. Pina-Martins F, Silva DN, Fino J, Paulo OS (2017) Structure_threader: An improved method for automation and parallelization of programs structure, fastStructure and MavericK on multicore CPU systems. Molecular ecology resources 17:e268-e274
+
+
+
