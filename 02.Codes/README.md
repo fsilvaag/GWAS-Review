@@ -16,7 +16,7 @@
 
 - FaST_LMM_Program.txt: Brief set of commands in unix to run the [FaST-LMM program](https://github.com/fastlmm/FaST-LMM.git)
 
-- Phenotype_Analysis.sas: Data analysis in SAS following model showed in Real data example section of [paper](https://communities.sas.com/t5/SAS-Procedures/PROC-IMPORT-from-Web/td-p/206264).
+- Phenotype_Analysis.sas: Data analysis in SAS following model showed in Real data example section of [paper]().
 
 # References
 
