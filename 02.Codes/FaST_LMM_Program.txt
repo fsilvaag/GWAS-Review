@@ -1,0 +1,23 @@
+Created 6/18/2020
+
+Below is the code to run FaST-LMM program.
+
+Input FIles:
+1) Genotypic File in Plink Format --> geno_487_no_Duplicates.plk
+2) Phenotypic file with columns of Family ID (FID), Individual ID (IID), phenotype for variable (BLUPs). In our example the FID and IID are the same.
+3) We provide the genetic similarity matrix (GSM) by using the sim option. The simmilarity matrix correspond for either the IBDLD or VanRaden kinship matrices.
+	Both matrices start in the first cell with the value var.
+	The first row and column are the name of the individuals. 
+	The second column in our example is the same column 1 (name of DH lines)
+4) Covariables. In our case the Population structure matrix
+	Since Structure and PCA provide the same results, we use the PCA matrix to run GWAS. The matrix used here is the same as the one that GAPIT uses. This was created after running GAPIT
+	and extracting the PCA.
+	the file was called: PCA.txt. The first two columns are the IID 
+
+
+The following code was used to run the program:
+
+$ /mnt/c/Users/deer1/Desktop/GWAS_Review_Data/FastLMM/Bin/Windows/Cpp_MKL/FastLmmC.exe -file geno_487_no_Duplicates.plk -pheno Pheno.txt -sim K_Van.txt -covar PCA.txt -REML -Ftest -verboseOut -out PH_FaST_VanRaden.txt
+
+This was run within the folder 
+$ /mnt/c/Users/deer1/Desktop/GWAS_Review_Data/FastLMM/GWAS_Alejo/
