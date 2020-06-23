@@ -10,6 +10,11 @@
 
 - Venn_Diagram_GWAS.R: Venn diagram for the Significant SNps SUPER and FarmCPU
 
+- GAPIT PH.Rmd: Code to run GAPIT3 for the models CMLM, FarmCPU, SUPER, and MLMM
+
+- QQPlots PH.Rmd: Code to create QQ-plots for sevaral models in the same graph
+
+-
 # References
 
 
