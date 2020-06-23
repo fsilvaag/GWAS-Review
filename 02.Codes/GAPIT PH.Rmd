@@ -1,0 +1,444 @@
+---
+title: "GWAS Plant and Ear Height"
+author: "Fernando Silva Aguilar and Alejandro Ledesma"
+date: "June 5, 2020"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# GAPIT package
+## Installing GAPIT and required packages
+```{r}
+if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+BiocManager::install(version = "3.11")
+BiocManager::install("multtest")
+
+
+install.packages("gplots")
+install.packages("LDheatmap")
+install.packages("genetics")
+install.packages("ape")
+install.packages("EMMREML")
+install.packages("scatterplot3d")
+```
+
+## Libraries
+
+```{r, message=FALSE}
+library(multtest)
+library(gplots)
+library(LDheatmap)
+library(genetics)
+library(ape)
+library(EMMREML)
+library(compiler) #this library is already installed in R
+library("scatterplot3d")
+rm(list = ls())
+#source("http://www.zzlab.net/GAPIT/emma.txt")
+source("http://www.zzlab.net/GAPIT/GAPIT.library.R")
+source("http://www.zzlab.net/GAPIT/gapit_functions.txt")
+```
+
+## Genotypic Data
+```{r, message=FALSE}
+library(data.table)
+path = "https://raw.githubusercontent.com/fsilvaag/GWAS-Review/master/01.%20Databases/"
+
+GBS <- as.data.frame(fread(paste0(path,"Imputed_Genotypic_data.hmp.txt.gz"), header = F))
+DH <- as.data.frame(t((GBS[1,])[-c(1:11)]))
+
+```
+
+
+## Phenotypic Data
+```{r, message=FALSE}
+library(openxlsx); library(tidyverse)
+path1 <- paste0(path,"GWAS_PG_EH/")
+ph <- as.data.frame(fread(paste0(path,"Blups_487_DH_Lines.csv")))
+colnames(DH) <- "Ind"
+Y <- (merge(DH,ph, by = "Ind"))
+w <- Y %>% separate(Ind,into = c("Group","DH_ID"), sep = "_")
+table(w$Group)
+```
+## Kinship
+
+```{r}
+IBDLD <- as.data.frame(fread(paste0(path,"IBDLD_Kinship_Matrix.csv")))
+Gmatrix <- as.data.frame(fread(paste0(path,"GMatrix_VanRaden.csv")))
+Gma <- as.data.frame(fread(paste0(path,"GMatrix_VanRaden_no_5SNPs.csv"))) # G matrix without the 5 Sognificant SNPs found with FarmCPU
+
+```
+
+# Running Models
+# **CMLM** for *Plant Height*
+## IBDLD Kinship
+
+```{r, message=FALSE}
+setwd(paste0(path,"Models/CMLM/Plant Height/IBDLD/"))
+start_CMLM <- Sys.time()
+CMLM <- GAPIT(Y = Y[,c("Ind","PH")], 
+              G = GBS,
+              KI = IBDLD,
+              PCA.total = 3, 
+              model = c("CMLM"),SNP.P3D = T
+                  )
+end_CMLM <- Sys.time()
+end_CMLM - start_CMLM
+
+Conduct.FDR <- GAPIT.Perform.BH.FDR.Multiple.Correction.Procedure(PWI = CMLM$GWAS,
+FDR.Rate = 0.05, FDR.Procedure = "BH")
+FDR <- Conduct.FDR$PWIP
+
+GAPIT.QQ(P.values = Conduct.FDR$PWIP[,4], name.of.trait = "PH_IBDLD",DPP=50000)
+GAPIT.Manhattan(GI.MP = FDR[,2:4], name.of.trait = "PH_IBDLD",
+DPP=50000, plot.type = "Genomewise", cutOff=0.05)
+write.csv(FDR, "C:/Users/deer1/Desktop/GWAS_Review_Data/Models/CMLM/Plant Height/IBDLD/GWAS_Results_with_FDR.csv", quote = F, row.names = F)
+```
+
+## G Matrix Kinship
+```{r, message=FALSE}
+setwd(paste0(path,"Models/CMLM/Plant Height/GMatrix/"))
+start_CMLM_Van <- Sys.time()
+CMLM_Van <- GAPIT(Y = Y[,c("Ind","PH")], 
+              G = GBS,
+              KI = Gmatrix,
+              #CV = Q, #This is if we want to include the Q matrix
+              PCA.total = 3,
+              model = c("CMLM"),SNP.P3D = T
+                  )
+end_CMLM_Van <- Sys.time()
+end_CMLM_Van - start_CMLM_Van
+
+Conduct.FDR_Van <- GAPIT.Perform.BH.FDR.Multiple.Correction.Procedure(PWI = CMLM_Van$GWAS,
+FDR.Rate = 0.05, FDR.Procedure = "BH")
+FDR_van <- Conduct.FDR_Van$PWIP
+
+GAPIT.QQ(P.values = Conduct.FDR_Van$PWIP[,4], name.of.trait = "PH_VanRaden",DPP=50000)
+GAPIT.Manhattan(GI.MP = FDR_van[,2:4], name.of.trait = "PH_VanRaden",
+DPP=50000, plot.type = "Genomewise", cutOff=0.05)
+write.csv(FDR_van, "C:/Users/deer1/Desktop/GWAS_Review_Data/Models/CMLM/Plant Height/GMatrix/GWAS_Results_with_FDR.csv", quote = F, row.names = F)
+```
+
+**##############################################################**
+
+
+# **SUPER-MLM** *Plant Height*
+## IBDLD
+```{r}
+setwd(paste0(path,"Models/SUPER/Plant Height/IBDLD/"))
+rm(list = ls()[ls() %in% c("FDR","Conduct.FDR","Conduct.FDR_Van", "Conduct.FDR_Van_EH", "Conduct.FDR_EH", "FDR_van_EH", "FDR_EH", "FDR_van")])
+
+START_SUPER <- Sys.time()
+SUPER <- GAPIT(Y = Y[,c("Ind","PH")], 
+              G = GBS,
+              KI = IBDLD,
+              #CV = Q, #This is if we want to include the Q matrix
+              PCA.total = 3,
+              #model = "SUPER"
+              sangwich.top = "MLM",
+              sangwich.bottom = "SUPER"
+              )
+END_SUPER <- Sys.time()
+END_SUPER - START_SUPER
+
+Conduct.FDR <- GAPIT.Perform.BH.FDR.Multiple.Correction.Procedure(PWI = SUPER$GWAS, FDR.Rate = 0.05, FDR.Procedure = "BH")
+GWAS.Results.with.FDR <- Conduct.FDR$PWIP
+
+GAPIT.QQ(P.values = GWAS.Results.with.FDR$`FDR_Adjusted_P-values`, name.of.trait = "PH_IBDLD",DPP=50000)
+GAPIT.Manhattan(GI.MP = GWAS.Results.with.FDR[,c(2,3,10)], name.of.trait = "PH_IBDLD",
+DPP=50000, plot.type = "Genomewise", cutOff=0.05)
+
+```
+
+## Gmatrix
+```{r}
+setwd(paste0(path,"Models/SUPER/Plant Height/GMatrix/"))
+START_SUPER_Van <- Sys.time()
+SUPER_Van <- GAPIT(Y = Y[,c("Ind","PH")], 
+              G = GBS,
+              KI = Gmatrix,
+              #CV = Q, #This is if we want to include the Q matrix
+              PCA.total = 3,
+              sangwich.top = "MLM",
+              sangwich.bottom = "SUPER"
+              )
+END_SUPER_Van <- Sys.time()
+END_SUPER_Van - START_SUPER_Van
+
+d <- SUPER_Van$GWAS
+
+
+GAPIT.QQ(P.values = d$P.value, name.of.trait = "PH_IBDLD",DPP=50000)
+GAPIT.Manhattan(GI.MP = d[,2:4], name.of.trait = "PH_IBDLD",
+DPP=50000, plot.type = "Genomewise", cutOff=0.05)
+
+```
+**##############################################################**
+**##############################################################**
+**##############################################################** **##############################################################**
+
+# **FarmCPU** *Plant Height* All data
+## IBDLD
+```{r}
+setwd(paste0(path,"Models/FarmCPU/Plant Height/IBDLD/"))
+rm(list = ls()[ls() %in% c("FDR","Conduct.FDR","Conduct.FDR_Van", "Conduct.FDR_Van_EH", "Conduct.FDR_EH", "FDR_van_EH", "FDR_EH", "FDR_van")])
+
+STRAT_Farm <- Sys.time()
+FARM <- GAPIT(Y = Y[,c("Ind","PH")], 
+              G = GBS,
+              KI = IBDLD,
+              #CV = Q, #This is if we want to include the Q matrix
+              PCA.total = 3,
+              model = "FarmCPU"
+              )
+END_Farm <- Sys.time()
+END_Farm - STRAT_Farm
+
+#Conduct.FDR <- GAPIT.Perform.BH.FDR.Multiple.Correction.Procedure(PWI = FARM$GWAS, FDR.Rate = 0.05, FDR.Procedure = "BH")
+d <- FARM$GWAS
+#FDR <- Conduct.FDR$PWIP
+
+GAPIT.QQ(P.values = d$P.value, name.of.trait = "PH_IBDLD",DPP=50000)
+GAPIT.Manhattan(GI.MP = d[,2:4], name.of.trait = "PH_IBDLD",
+DPP=50000, plot.type = "Genomewise", cutOff=0.05)
+
+#write.csv(FDR, "C:/Users/deer1/Desktop/GWAS_Review_Data/Models/FarmCPU/Plant Height/IBDLD/GWAS_Results_with_FDR.csv", quote = F, row.names = F)
+
+```
+
+## Gmatrix
+```{r}
+setwd(paste0(path,"Models/FarmCPU/Plant Height/GMatrix/"))
+STRAT_Farm_van <- Sys.time()
+FARM_van <- GAPIT(Y = Y[,c("Ind","PH")], 
+              G = GBS,
+              KI = Gmatrix,
+              #CV = Q, #This is if we want to include the Q matrix
+              PCA.total = 3,
+              model = "FarmCPU"
+              )
+END_Farm_van <- Sys.time()
+END_Farm_van - STRAT_Farm_van
+
+#Conduct.FDR_van <- GAPIT.Perform.BH.FDR.Multiple.Correction.Procedure(PWI = FARM_van$GWAS, FDR.Rate = 0.05, FDR.Procedure = "BH")
+d <- FARM_van$GWAS
+#FDR_van <- Conduct.FDR_van$PWIP
+
+GAPIT.QQ(P.values = d$P.value, name.of.trait = "PH_GMatrix",DPP=50000)
+GAPIT.Manhattan(GI.MP = d[,2:4], name.of.trait = "PH_GMatrix",
+DPP=50000, plot.type = "Genomewise", cutOff=0.05)
+
+
+```
+
+
+**##############################################################**
+**##############################################################**
+**##############################################################** **##############################################################**
+
+
+# **FarmCPU** *Plant Height* No significant 5SNPs
+From the first round we identify the SNPs:
+S7_25022476
+S1_226374236
+S8_3532960
+S9_133204506
+S2_193723829
+Therefore we create another GBS matrix and another Kinship matrices
+
+## Input data
+
+```{r}
+gbs <- as.data.frame(fread(paste0(path,"Imputed_Genotypic_No5SNPs_Farm_CPU.hmp.txt.gz"), header = F))
+```
+
+
+## IBDLD
+```{r}
+setwd("C:/Users/deer1/Desktop/GWAS_Review_Data/Models/FarmCPU/Plant Height/No_5_Sig_SNPs/IBDLD/")
+rm(list = ls()[ls() %in% c("FDR","Conduct.FDR","Conduct.FDR_Van", "Conduct.FDR_Van_EH", "Conduct.FDR_EH", "FDR_van_EH", "FDR_EH", "FDR_van")])
+
+STRAT_Farm <- Sys.time()
+FARM <- GAPIT(Y = Y[,c("Ind","PH")], 
+              G = gbs,
+              KI = IBDLD,
+              #CV = Q, #This is if we want to include the Q matrix
+              PCA.total = 3,
+              model = "FarmCPU"
+              )
+END_Farm <- Sys.time()
+END_Farm - STRAT_Farm
+
+#Conduct.FDR <- GAPIT.Perform.BH.FDR.Multiple.Correction.Procedure(PWI = FARM$GWAS, FDR.Rate = 0.05, FDR.Procedure = "BH")
+d <- FARM$GWAS
+#FDR <- Conduct.FDR$PWIP
+
+GAPIT.QQ(P.values = d$P.value, name.of.trait = "PH_IBDLD",DPP=50000)
+GAPIT.Manhattan(GI.MP = d[,2:4], name.of.trait = "PH_IBDLD",
+DPP=50000, plot.type = "Genomewise", cutOff=0.05)
+
+#write.csv(FDR, "C:/Users/deer1/Desktop/GWAS_Review_Data/Models/FarmCPU/Plant Height/IBDLD/GWAS_Results_with_FDR.csv", quote = F, row.names = F)
+
+```
+
+## Gmatrix
+```{r}
+setwd("C:/Users/deer1/Desktop/GWAS_Review_Data/Models/FarmCPU/Plant Height/No_5_Sig_SNPs/GMatrix/")
+STRAT_Farm_van <- Sys.time()
+FARM_van <- GAPIT(Y = Y[,c("Ind","PH")], 
+              G = gbs,
+              KI = Gma,
+              #CV = Q, #This is if we want to include the Q matrix
+              PCA.total = 3,
+              model = "FarmCPU"
+              )
+END_Farm_van <- Sys.time()
+END_Farm_van - STRAT_Farm_van
+
+#Conduct.FDR_van <- GAPIT.Perform.BH.FDR.Multiple.Correction.Procedure(PWI = FARM_van$GWAS, FDR.Rate = 0.05, FDR.Procedure = "BH")
+d <- FARM_van$GWAS
+#FDR_van <- Conduct.FDR_van$PWIP
+
+GAPIT.QQ(P.values = d$P.value, name.of.trait = "PH_GMatrix",DPP=50000)
+GAPIT.Manhattan(GI.MP = d[,2:4], name.of.trait = "PH_GMatrix",
+DPP=50000, plot.type = "Genomewise", cutOff=0.05)
+
+
+```
+
+
+# **FarmCPU** *Plant Height* No significant 2 SNPs
+From the first round we identify the SNPs:
+S7_25022476
+S1_226374236
+S8_3532960
+Therefore we create another GBS matrix and another Kinship matrices
+
+## Input data
+
+```{r}
+gbs <- as.data.frame(fread(paste0(path,"Imputed_Genotypic_No2SNPs_Farm_CPU.hmp.txt.gz"), header = F))
+
+Gma <- as.data.frame(fread(paste0(path,"GMatrix_VanRaden_no_2SNPs.csv"), header = T))
+
+```
+
+
+## IBDLD
+```{r}
+setwd("C:/Users/deer1/Desktop/GWAS_Review_Data/Models/FarmCPU/Plant Height/No_5_Sig_SNPs/IBDLD/")
+rm(list = ls()[ls() %in% c("FDR","Conduct.FDR","Conduct.FDR_Van", "Conduct.FDR_Van_EH", "Conduct.FDR_EH", "FDR_van_EH", "FDR_EH", "FDR_van")])
+
+STRAT_Farm <- Sys.time()
+FARM <- GAPIT(Y = Y[,c("Ind","PH")], 
+              G = gbs,
+              KI = IBDLD,
+              #CV = Q, #This is if we want to include the Q matrix
+              PCA.total = 3,
+              model = "FarmCPU"
+              )
+END_Farm <- Sys.time()
+END_Farm - STRAT_Farm
+
+d <- FARM$GWAS
+
+GAPIT.QQ(P.values = d$P.value, name.of.trait = "PH_IBDLD",DPP=50000)
+GAPIT.Manhattan(GI.MP = d[,2:4], name.of.trait = "PH_IBDLD",
+DPP=50000, plot.type = "Genomewise", cutOff=0.05)
+
+```
+
+## Gmatrix
+```{r}
+setwd("C:/Users/deer1/Desktop/GWAS_Review_Data/Models/FarmCPU/Plant Height/No_3_Sig_SNPs/GMatrix/")
+STRAT_Farm_van <- Sys.time()
+FARM_van <- GAPIT(Y = Y[,c("Ind","PH")], 
+              G = gbs,
+              KI = Gma,
+              #CV = Q, #This is if we want to include the Q matrix
+              PCA.total = 3,
+              model = "FarmCPU"
+              )
+END_Farm_van <- Sys.time()
+END_Farm_van - STRAT_Farm_van
+
+d <- FARM_van$GWAS
+GAPIT.QQ(P.values = d$P.value, name.of.trait = "PH_GMatrix",DPP=50000)
+GAPIT.Manhattan(GI.MP = d[,2:4], name.of.trait = "PH_GMatrix",
+DPP=50000, plot.type = "Genomewise", cutOff=0.05)
+```
+
+**##############################################################**
+
+
+
+# **MLMM** *Plant Height*
+## IBDLD
+```{r}
+setwd(paste0(path,"Models/MLMM/Plant Height/IBDLD/"))
+STRAT_MLMM <- Sys.time()
+MLMM <- GAPIT(Y = Y[,c("Ind","PH")], 
+              G = GBS,
+              KI = IBDLD,
+              #CV = Q, #This is if we want to include the Q matrix
+              PCA.total = 3,
+              model = "MLMM"
+              )
+END_MLMM <- Sys.time()
+END_MLMM - STRAT_MLMM
+
+
+d <- MLMM$GWAS
+
+GAPIT.QQ(P.values = d$P.value, name.of.trait = "PH_IBDLD",DPP=50000)
+GAPIT.Manhattan(GI.MP = d[,2:4], name.of.trait = "PH_IBDLD",
+DPP=50000, plot.type = "Genomewise", cutOff=0.05)
+
+
+```
+
+## Gmatrix
+
+```{r}
+setwd(paste0(path,"Models/MLMM/Plant Height/GMatrix/"))
+STRAT_MLMM_van <- Sys.time()
+MLMM_van <- GAPIT(Y = Y[,c("Ind","PH")], 
+              G = GBS,
+              KI = Gmatrix,
+              #CV = Q, #This is if we want to include the Q matrix
+              PCA.total = 3,
+              model = "MLMM"
+              )
+END_MLMM_van <- Sys.time()
+END_MLMM_van - STRAT_MLMM_van
+
+
+d <-MLMM_van$GWAS
+
+GAPIT.QQ(P.values = d$P.value, name.of.trait = "PH_GMatrix",DPP=50000)
+GAPIT.Manhattan(GI.MP = d[,2:4], name.of.trait = "PH_GMatrix",
+DPP=50000, plot.type = "Genomewise", cutOff=0.05)
+
+
+```
+
+**##############################################################**
+
+References:
+[Emmax](https://genome.sph.umich.edu/wiki/EMMAX)
+[Gapit Models](https://github.com/jiabowang/GAPIT3)
+[Q Value](http://www.bioconductor.org/packages/release/bioc/html/qvalue.html)
+[Q Value Manual](https://www.bioconductor.org/packages/release/bioc/manuals/qvalue/man/qvalue.pdf)
+[FaST-LMM]()
+
+
+
+
+
+
+
