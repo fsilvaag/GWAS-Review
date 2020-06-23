@@ -1,0 +1,234 @@
+---
+title: "QQ and Manhattan Plots"
+author: "Fernando Silva Aguilar"
+date: "June 19, 2020"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data input
+## Plant Height
+### G Matrix
+```{r, message=FALSE}
+library(qqman); library(tidyverse)
+library(gtools);library(data.table) 
+library(ggpubr)
+rm(list = ls())
+path <- "https://raw.githubusercontent.com/fsilvaag/GWAS-Review/master/03.Output_Files/Models_Output/"
+
+## Importing datasets
+# SUPER
+##IBDLD
+SUPER_IBDLD <- as.data.frame(fread(paste0(path,"IBDLD.GAPIT.SUPER.PH.GWAS.Results.csv")))
+
+SUPER_IBDLD_No3 <- as.data.frame(fread(paste0(path,"Subset_3SNPs_IBDLD.GAPIT.SUPER.PH.GWAS.Results.csv")))
+
+
+## G Matrix
+SUPER_G_Mat <- as.data.frame(fread(paste0(path,"G_Mat.GAPIT.SUPER.PH.GWAS.Results.csv")))
+
+SUPER_G_Mat_No3 <- as.data.frame(fread(paste0(path,"Subset_3SNPs.G_Mat.GAPIT.SUPER.PH.GWAS.Results.csv")))
+
+# FarmCPU
+## IBDLD
+FarmCPU_IBDLD <- as.data.frame(fread(paste0(path,"Full_IBDLD.GAPIT.FarmCPU.PH.GWAS.Results.csv")))
+
+FarmCPU_No2_IBDLD <- as.data.frame(fread(paste0(path,"Subset_2SNPs_IBDLD.GAPIT.FarmCPU.PH.GWAS.Results.csv")))
+
+FarmCPU_No5_IBDLD <- as.data.frame(fread(paste0(path,"Subset_5SNPs_IBDLD.GAPIT.FarmCPU.PH.GWAS.Results.csv")))
+
+## G Matrix
+
+FarmCPUG_Mat <- as.data.frame(fread(paste0(path,"Full_G_Mat.GAPIT.FarmCPU.PH.GWAS.Results.csv")))
+
+FarmCPU_No2G_Mat <- as.data.frame(fread(paste0(path,"Subset_2SNPs_G_Mat.GAPIT.FarmCPU.PH.GWAS.Results.csv")))
+
+FarmCPU_No5G_Mat <- as.data.frame(fread(paste0(path,"Subset_5SNPs_G_Mat.GAPIT.FarmCPU.PH.GWAS.Results.csv")))
+
+# FaST-LMM
+## IBDLD
+
+FAST_IBDLD <- as.data.frame(fread(paste0(path,"PH_FaST_IBD.txt")))
+colnames(FAST_IBDLD)[6:7] <- c("P.value","FDR_Adjusted_P-values")
+
+
+## G Matrix
+FAST_G_Mat <- as.data.frame(fread(paste0(path,"PH_FaST_VanRaden.txt")))
+colnames(FAST_G_Mat)[6:7] <- c("P.value","FDR_Adjusted_P-values")
+
+
+# CMLM
+## IBDLD
+CMLM_IBDLD <- as.data.frame(fread(paste0(path,"IBDLD.GAPIT.CMLM.PH.GWAS.Results.csv")))
+
+## G Matrix
+
+CMLM_G_Mat <- as.data.frame(fread(paste0(path,"G_Mat.GAPIT.CMLM.PH.GWAS.Results.csv")))
+
+
+# MMLM
+## IBDLD
+MMLM_IBDLD <- as.data.frame(fread(paste0(path,"IBDLD.GAPIT.MLMM.PH.GWAS.Results.csv")))
+
+## G Matrix
+
+MMLM_G_Mat <- as.data.frame(fread(paste0(path,"G_Mat.GAPIT.MLMM.PH.GWAS.Results.csv")))
+```
+
+```{r}
+GM <- mixedsort(ls()[grep("G_Mat",ls())])
+GM <- GM[-grep(paste(c("FarmCPU_No2G_Mat","SUPER_G_Mat_No3"),collapse = "|"),GM)]
+for (i in 1:length(GM)) {
+  d <- as.data.table(get(GM[i]))
+  d <- d[order(d[,"P.value"]),]
+  d$Obseved <- -log10(d$P.value)
+  d$p_value_quantiles <- (1:length(d$P.value))/(length(d$P.value)+1)
+  d$log.Quantiles <- -log10(d$p_value_quantiles)
+  d$Method <- gsub("G","",GM[i])
+  d$Expected <- -log10(ppoints(nrow(d)))
+  
+  assign(GM[i],
+         d[,c("SNP","Chromosome","Position","P.value","Obseved","log.Quantiles","Expected","p_value_quantiles","Method")])
+}
+list_df_G = lapply(GM, get)
+QQGM <- rbindlist(list_df_G)
+QQGM$Method <- ifelse(QQGM$Method == "FarmCPU_No5_Mat", "FarmCPU Subset",QQGM$Method)
+QQGM$Method <- gsub(paste(c("_","Mat"),collapse = "|"),"",QQGM$Method)
+```
+
+### IBDLD
+```{r}
+IM <-  mixedsort(ls()[grep("IBDLD",ls())])
+IM <- IM[-grep(paste(c("FarmCPU_No2_IBDLD","SUPER_IBDLD_No3"),collapse = "|"),IM)]
+
+for (i in 1:length(IM)) {
+  d <- as.data.table(get(IM[i]))
+  d <- d[order(d[,"P.value"]),]
+  d$Obseved <- -log10(d$P.value)
+  d$p_value_quantiles <- (1:length(d$P.value))/(length(d$P.value)+1)
+  d$log.Quantiles <- -log10(d$p_value_quantiles)
+  d$Method <- gsub("I","",IM[i])
+  d$Expected <- -log10(ppoints(nrow(d)))
+  
+  assign(IM[i],
+         d[,c("SNP","Chromosome","Position","P.value","Obseved","log.Quantiles","Expected","p_value_quantiles","Method")])
+}
+
+list_df_IBD = lapply(IM, get)
+QQIBD <- rbindlist(list_df_IBD)
+QQIBD$Method <- ifelse(QQIBD$Method == "FarmCPU_No5_IBDLD", "FarmCPU Subset",QQIBD$Method)
+QQIBD$Method <- gsub(paste(c("_","BDLD"),collapse = "|"),"",QQGM$Method)
+
+```
+
+## Confidence intervals
+```{r}
+st <- Sys.time()
+d <- FarmCPUG_Mat
+N <- length(d$P.value)
+for (j in 1:N) {
+  i <- ceiling((10^-d$log.Quantiles[j])*N)
+  if(i==0)i=1
+  d$c95[j] <- -log10(qbeta(0.95,i,N-i+1))
+  d$c05[j] <- -log10(qbeta(0.05,i,N-i+1) )
+}
+en <- Sys.time()
+
+
+st1 <- Sys.time()
+d1 <- SUPER_IBDLD
+N1 <- length(d1$P.value)
+for (j in 1:N1) {
+  i <- ceiling((10^-d1$log.Quantiles[j])*N1)
+  if(i==0)i=1
+  d1$c95[j] <- -log10(qbeta(0.95,i,N1-i+1))
+  d1$c05[j] <- -log10(qbeta(0.05,i,N1-i+1) )
+}
+en1 <- Sys.time()
+
+en -st
+en1 - st1
+
+```
+## QQ-Plot for G Matrix
+```{r}
+col_line <- c("95% C.I.")
+PHG <- ggplot(QQGM,aes(x = log.Quantiles, y = Obseved)) + 
+  geom_ribbon(data=d, 
+          aes(ymin=c05,ymax=c95), fill="grey86") +
+  geom_abline(slope = 1) +
+  geom_point(aes(col = Method)) + 
+  #geom_line(data = d, aes(x = log.Quantiles, y = c95,color = col_line)) +
+  #geom_line(data = d, aes(x = log.Quantiles, y = c05,color = col_line)) +
+  scale_y_continuous(expand = c(0,0), 
+                     limits = c(0,max(QQGM$Obseved)+0.2), 
+                     breaks = seq(0,10,by = 1)) + 
+  scale_x_continuous(expand = c(0,0), 
+                     limits = c(0,max(QQGM$log.Quantiles)+0.2), 
+                     breaks = seq(1,10,by = 1)) +
+  theme_bw() + theme(panel.grid = element_blank(), 
+                     legend.text = element_text(size = 15),
+                     legend.title = element_blank(),
+                     legend.position = c(0.3,0.7),
+                     axis.title = element_text(size = 25),
+                     axis.text = element_text(size = 18),
+                     legend.background = element_blank(),
+                     legend.box.background = element_rect(colour = 'black')) +
+  #guides(fill = guide_legend(nrow = 1)) + 
+  labs(x= expression(Expected~~-log[10](italic("P value"))),
+       y=expression(Observed~~-log[10](italic("P value"))) ) +
+  scale_color_manual(values = c("green3","red","blue","orange2","purple","brown")) +
+  scale_linetype_manual(values = c("dashed","dashed"))
+
+PHG
+```
+
+## QQ Plot for IBDLD
+```{r}
+col_line <- c("95% C.I.")
+PHIB <- ggplot(QQIBD,aes(x = log.Quantiles, y = Obseved)) + 
+  geom_ribbon(data=d1, 
+          aes(ymin=c05,ymax=c95), fill="grey86") +
+  geom_abline(slope = 1) +
+  geom_point(aes(col = Method)) + 
+  #geom_line(data = d, aes(x = log.Quantiles, y = c95,color = col_line)) +
+  #geom_line(data = d, aes(x = log.Quantiles, y = c05,color = col_line)) +
+  scale_y_continuous(expand = c(0,0), 
+                     limits = c(0,max(QQIBD$Obseved)+0.2), 
+                     breaks = seq(0,10,by = 1)) + 
+  scale_x_continuous(expand = c(0,0), 
+                     limits = c(0,max(QQIBD$log.Quantiles)+0.2), 
+                     breaks = seq(1,10,by = 1)) +
+  theme_bw() + theme(panel.grid = element_blank(), 
+                     legend.text = element_text(size = 15),
+                     legend.title = element_blank(),
+                     legend.position = c(0.3,0.7),
+                     axis.title = element_text(size = 25),
+                     axis.text = element_text(size = 18),
+                     legend.background = element_blank(),
+                     legend.box.background = element_rect(colour = 'black')) +
+  #guides(fill = guide_legend(nrow = 1)) + 
+  labs(x= expression(Expected~~-log[10](italic("P value"))),
+       y=expression(Observed~~-log[10](italic("P value"))) ) +
+  scale_color_manual(values = c("green3","red","blue","orange2","purple","brown")) +
+  scale_linetype_manual(values = c("dashed","dashed"))
+
+PHIB
+```
+
+
+```{r}
+# This is to reference
+ggarrange(PHIB,PHG, labels = c("A) IBDLD",
+                               "B) G Matrix"))
+
+# Same as above but to be used in paper
+#ggarrange(PHIB,PHG, labels = c("A)","B)"))
+
+```
+
