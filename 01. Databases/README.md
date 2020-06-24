@@ -13,6 +13,8 @@
 
 - *LD_Decay.txt.gz*: Linkage disequilibrium analysis using Tassel v 5.2.52 (Bradbury et al. 2007). 
 
+- *Structure_No-Duplicates.txt.gz*:Genotypic data in structure software format
+
 - *README.md*: This file
 
 
