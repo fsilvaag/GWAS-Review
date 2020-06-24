@@ -18,6 +18,8 @@
 
 - Phenotype_Analysis.sas: Data analysis in SAS following model showed in Real data example section of [paper]().
 
+- README_structure_threader.txt: Code to run structure_threader in unix environment
+
 # References
 
 
