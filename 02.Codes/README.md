@@ -18,11 +18,17 @@
 
 - Phenotype_Analysis.sas: Data analysis in SAS following model showed in Real data example section of [paper]().
 
-- IBDLD_Program.md: Code to run IBDLD program
+- IBDLD_Program.md: Code to run IBDLD program (Han and Abney 2011, 2013)
 
 - README_structure_threader.txt: Code to run structure_threader in unix environment
 
 # References
 
 
-Jombart T (2008) adegenet: a R package for the multivariate analysis of genetic markers. Bioinformatics 24:1403-1405
+- Jombart T (2008) adegenet: a R package for the multivariate analysis of genetic markers. Bioinformatics 24:1403-1405
+
+- Han L, Abney M (2011) Identity by descent estimation with dense genome‐wide genotype data. Genetic epidemiology 35:557-567
+
+- Han L, Abney M (2013) Using identity by descent estimation with dense genotype data to detect positive selection. European Journal of Human Genetics 21:205-211
+
+
